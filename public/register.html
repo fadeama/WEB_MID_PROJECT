@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Register – Client Web Project</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Register</h1>
+    </header>
+    <main>
+        <form id="register-form">
+            <div>
+                <label>Username: <input type="text" id="username" required></label>
+            </div>
+            <div>
+                <label>Password: <input type="password" id="password" required></label>
+            </div>
+            <div>
+                <label>Confirm Password: <input type="password" id="confirm" required></label>
+            </div>
+            <div>
+                <label>First Name: <input type="text" id="firstName" required></label>
+            </div>
+            <div>
+                <label>Picture URL: <input type="text" id="picture" required></label>
+            </div>
+            <div id="error" style="color:red;"></div>
+            <div style="margin-top:0.5rem;">
+                <button type="submit">Register</button>
+            </div>
+        </form>
+        <p>Already have an account? <a href="login.html">Login here</a>.</p>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>

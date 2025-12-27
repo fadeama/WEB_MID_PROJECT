@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Playlists – Client Web Project</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Your Playlists</h1>
+        <div>
+            <button id="logout-btn">Logout</button>
+        </div>
+    </header>
+    <main class="container">
+        <div class="sidebar">
+            <h3>My Library</h3>
+            <button id="new-playlist-btn">+ New Playlist</button>
+            <ul id="playlist-list" class="list-group"></ul>
+        </div>
+        <div id="playlist-content" class="playlist-main"></div>
+    </main>
+    <div id="modal" class="modal">
+        <div id="modal-content" class="modal-content"></div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
