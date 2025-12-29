@@ -1,33 +1,68 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Search – Client Web Project</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <header>
         <h1>Search Videos</h1>
-        <div style="display:flex; align-items:center; gap:1rem;">
-            <span id="welcome"></span>
-            <img id="user-image" src="" alt="User" style="width:40px;height:40px;border-radius:50%;display:none;">
-            <button id="logout-btn">Logout</button>
+        <div class="header-user-bar">
+            <div class="header-user-info">
+                <span id="welcome"></span>
+                <img id="user-image" src="" alt="User" style="display:none;">
+            </div>
+            <div class="header-actions">
+                <button id="playlist-btn" class="btn-ghost">Playlists</button>
+                <button id="logout-btn" class="btn-link">Logout</button>
+            </div>
         </div>
     </header>
+
+    <nav>
+        <ul>
+            <li><a href="index.html">Overview</a></li>
+            <li><a href="register.html">Register</a></li>
+            <li><a href="login.html">Login</a></li>
+            <li><a href="search.html" class="active">Search</a></li>
+            <li><a href="playlists.html">Playlists</a></li>
+        </ul>
+    </nav>
+
     <main>
-        <form id="search-form" style="margin-bottom:1rem;">
-            <input type="text" id="query" placeholder="Search for videos..." required style="padding:0.5rem; width:60%;">
-            <button type="submit">Search</button>
-        </form>
-        <div style="margin-bottom:1rem;">
-            <label>Upload MP3: <input type="file" id="mp3-input" accept="audio/*"></label>
-        </div>
-        <div id="results" class="container"></div>
+        <section class="search-panel">
+            <form id="search-form">
+                <input type="text" id="query" placeholder="Search YouTube videos..." required>
+                <button type="submit">Search</button>
+            </form>
+
+            <div class="file-input-row">
+                <label for="mp3-input" class="file-label">
+                    <span>Upload MP3</span>
+                    <input type="file" id="mp3-input" accept="audio/*">
+                </label>
+            </div>
+        </section>
+
+        <section>
+            <div id="results" class="cards-grid"></div>
+        </section>
     </main>
+
     <div id="toast" class="toast"></div>
+
     <div id="modal" class="modal">
         <div id="modal-content" class="modal-content"></div>
     </div>
+
+    <footer>
+        Client Web Project · Search
+    </footer>
+
     <script src="script.js"></script>
 </body>
+
 </html>

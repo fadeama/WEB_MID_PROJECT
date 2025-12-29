@@ -91,4 +91,5 @@ app.put('/api/playlists/:id', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log('Server running on port', PORT);
+    console.log(`Open your app here: http://localhost:${PORT}/index.html`);
 });

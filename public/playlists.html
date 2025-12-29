@@ -1,28 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Playlists – Client Web Project</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <header>
         <h1>Your Playlists</h1>
-        <div>
-            <button id="logout-btn">Logout</button>
+        <div class="header-user-bar">
+            <div class="header-user-info">
+                <!-- optional: you can show the user here later if you want -->
+            </div>
+            <div class="header-actions">
+                <button id="logout-btn" class="btn-link">Logout</button>
+            </div>
         </div>
     </header>
-    <main class="container">
-        <div class="sidebar">
-            <h3>My Library</h3>
-            <button id="new-playlist-btn">+ New Playlist</button>
-            <ul id="playlist-list" class="list-group"></ul>
-        </div>
-        <div id="playlist-content" class="playlist-main"></div>
+
+    <nav>
+        <ul>
+            <li><a href="index.html">Overview</a></li>
+            <li><a href="register.html">Register</a></li>
+            <li><a href="login.html">Login</a></li>
+            <li><a href="search.html">Search</a></li>
+            <li><a href="playlists.html" class="active">Playlists</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <section class="container">
+            <aside class="sidebar">
+                <div class="sidebar-header-row">
+                    <h2>Playlists</h2>
+                    <button id="new-playlist-btn" class="btn-ghost">New</button>
+                </div>
+                <ul id="playlist-list" class="list-group"></ul>
+            </aside>
+
+            <section class="playlist-main">
+                <div id="playlist-content">
+                    <!-- Filled by script.js -->
+                </div>
+            </section>
+        </section>
     </main>
+
+    <div id="toast" class="toast"></div>
+
     <div id="modal" class="modal">
         <div id="modal-content" class="modal-content"></div>
     </div>
+
+    <footer>
+        Client Web Project · Playlists
+    </footer>
+
     <script src="script.js"></script>
 </body>
+
 </html>
