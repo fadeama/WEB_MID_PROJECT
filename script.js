@@ -3,6 +3,11 @@
 // Replace this with a valid YouTube Data API key to enable search
 const API_KEY = 'AIzaSyDRUbxYrmzFQ9awM7NenypUjDtmV99YSV4';
 
+// Are we running with the Node server (localhost) or on GitHub Pages?
+const IS_LOCAL =
+    location.hostname === 'localhost' ||
+    location.hostname === '127.0.0.1';
+
 // ----- Session helpers (still on client) -----
 function getCurrentUser() {
     return sessionStorage.getItem('currentUser');
@@ -34,47 +39,103 @@ function ensureLoggedIn() {
     }
 }
 
-// ----- Server API helpers (USERS & PLAYLISTS) -----
-
-// USERS: register & login go directly via fetch; we don't need getUsers/saveUsers anymore
-
-// Get playlists of current user from server
-async function getPlaylists() {
-    const username = getCurrentUser();
-    if (!username) return [];
-    const res = await fetch(`/api/playlists?username=${encodeURIComponent(username)}`);
-    if (!res.ok) return [];
-    const playlists = await res.json();
-    // ignore "soft deleted" playlists (see delete handler below)
-    return playlists.filter(p => !p._deleted);
-}
-
-// Create a new playlist on server, return playlist object {id, username, name, videos: []}
-async function createPlaylistOnServer(name) {
-    const username = getCurrentUser();
-    const res = await fetch('/api/playlists', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, name })
-    });
-    if (!res.ok) throw new Error('Failed to create playlist');
-    const data = await res.json();
-    return { id: data.id, username, name, videos: [] };
-}
-
-// Update playlist on server (replace its fields)
-async function updatePlaylistOnServer(playlist) {
-    const res = await fetch(`/api/playlists/${encodeURIComponent(playlist.id)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(playlist)
-    });
-    if (!res.ok) {
-        throw new Error('Failed to update playlist');
+// ----- LocalStorage helpers for playlists (GitHub Pages mode) -----
+function getLocalPlaylists(username) {
+    const key = `playlists_${username}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return [];
     }
 }
 
-// ----- Registration -----
+function saveLocalPlaylists(username, playlists) {
+    const key = `playlists_${username}`;
+    localStorage.setItem(key, JSON.stringify(playlists));
+}
+
+// ----- Server API helpers (USERS & PLAYLISTS) -----
+
+// Get playlists of current user
+async function getPlaylists() {
+    const username = getCurrentUser();
+    if (!username) return [];
+
+    if (IS_LOCAL) {
+        // use Node server
+        try {
+            const res = await fetch(`/api/playlists?username=${encodeURIComponent(username)}`);
+            if (!res.ok) return [];
+            const playlists = await res.json();
+            // ignore soft-deleted playlists
+            return playlists.filter(p => !p._deleted);
+        } catch {
+            return [];
+        }
+    } else {
+        // GitHub Pages: use localStorage
+        const playlists = getLocalPlaylists(username);
+        return playlists.filter(p => !p._deleted);
+    }
+}
+
+// Create a new playlist, return {id, username, name, videos: []}
+async function createPlaylistOnServer(name) {
+    const username = getCurrentUser();
+    if (!username) throw new Error('No current user');
+
+    if (IS_LOCAL) {
+        const res = await fetch('/api/playlists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, name })
+        });
+        if (!res.ok) throw new Error('Failed to create playlist');
+        const data = await res.json();
+        return { id: data.id, username, name, videos: [] };
+    } else {
+        // GitHub Pages: localStorage version
+        const playlists = getLocalPlaylists(username);
+        const playlist = {
+            id: Date.now().toString(),
+            username,
+            name,
+            videos: [],
+            _deleted: false
+        };
+        playlists.push(playlist);
+        saveLocalPlaylists(username, playlists);
+        return playlist;
+    }
+}
+
+// Update playlist (replace its fields)
+async function updatePlaylistOnServer(playlist) {
+    const username = getCurrentUser();
+    if (!username) throw new Error('No current user');
+
+    if (IS_LOCAL) {
+        const res = await fetch(`/api/playlists/${encodeURIComponent(playlist.id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(playlist)
+        });
+        if (!res.ok) {
+            throw new Error('Failed to update playlist');
+        }
+    } else {
+        // GitHub Pages: localStorage version
+        const playlists = getLocalPlaylists(username);
+        const index = playlists.findIndex(p => p.id === playlist.id);
+        if (index !== -1) {
+            playlists[index] = playlist;
+            saveLocalPlaylists(username, playlists);
+        }
+    }
+}
+
 // ----- Registration -----
 async function registerUser(e) {
     e.preventDefault();
@@ -102,9 +163,6 @@ async function registerUser(e) {
     }
 
     // 3) Password policy
-    //    - minimum 6 chars
-    //    - at least one letter
-    //    - at least one non-alphanumeric (symbol) character
     const hasLetter = /[A-Za-z]/.test(password);
     const hasNonAlnum = /[^A-Za-z0-9]/.test(password);
     const isLongEnough = password.length >= 6;
@@ -115,7 +173,7 @@ async function registerUser(e) {
         return;
     }
 
-    // 4) Send to server
+    // 4) Send to server (only works locally)
     try {
         const res = await fetch('/api/register', {
             method: 'POST',
@@ -126,7 +184,6 @@ async function registerUser(e) {
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok || !data.success) {
-            // Show the *exact* server error if it exists (e.g. "Username exists")
             if (data.error) {
                 error.textContent = data.error;
             } else {
@@ -143,8 +200,6 @@ async function registerUser(e) {
     }
 }
 
-
-// ----- Login -----
 // ----- Login -----
 async function loginUser(e) {
     e.preventDefault();
@@ -160,14 +215,9 @@ async function loginUser(e) {
         return;
     }
 
-    // Are we running locally with Node, or on GitHub Pages?
-    const isLocal =
-        location.hostname === 'localhost' ||
-        location.hostname === '127.0.0.1';
-
     try {
-        if (isLocal) {
-            // ----- LOCAL MODE: use Node server API -----
+        if (IS_LOCAL) {
+            // LOCAL MODE: use Node server API
             const res = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -191,7 +241,7 @@ async function loginUser(e) {
             }
             window.location.href = 'search.html';
         } else {
-            // ----- GITHUB PAGES MODE: read static data/users.json -----
+            // GITHUB PAGES MODE: read static data/users.json
             const res = await fetch('data/users.json');
             if (!res.ok) {
                 error.textContent = 'Login failed: cannot load users list.';
@@ -208,7 +258,6 @@ async function loginUser(e) {
                 return;
             }
 
-            // success using static JSON
             setCurrentUser(username);
             setCurrentUserInfo(user);
             window.location.href = 'search.html';
@@ -218,8 +267,6 @@ async function loginUser(e) {
         error.textContent = 'Login failed: unexpected error.';
     }
 }
-
-
 
 function logout() {
     sessionStorage.removeItem('currentUser');
@@ -256,11 +303,17 @@ async function searchVideos(e) {
     resultsContainer.innerHTML = '';
     if (!query) return;
     try {
-        const resp = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(query)}&key=${API_KEY}`);
+        const resp = await fetch(
+            `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(
+                query
+            )}&key=${API_KEY}`
+        );
         const data = await resp.json();
         const videoIds = data.items.map(item => item.id.videoId).join(',');
         if (!videoIds) return;
-        const detailsResp = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id=${videoIds}&key=${API_KEY}`);
+        const detailsResp = await fetch(
+            `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id=${videoIds}&key=${API_KEY}`
+        );
         const detailsData = await detailsResp.json();
         const detailsMap = {};
         detailsData.items.forEach(item => {
@@ -341,7 +394,7 @@ function createCard(video) {
     resultsContainer.appendChild(card);
 }
 
-// Check if a video is already contained in any playlist of current user (server-based)
+// Check if a video is already contained in any playlist of current user
 async function isVideoInAnyPlaylist(videoId) {
     const currentUser = getCurrentUser();
     if (!currentUser) return false;
@@ -354,7 +407,7 @@ async function isVideoInAnyPlaylist(videoId) {
     return false;
 }
 
-// Add a video or mp3 to a playlist (creating playlist if needed) - server-based
+// Add a video or mp3 to a playlist (creating playlist if needed)
 async function addToFavorites(video, btn) {
     const currentUser = getCurrentUser();
     if (!currentUser) {
@@ -370,7 +423,9 @@ async function addToFavorites(video, btn) {
     try {
         let playlists = await getPlaylists();
         // find existing playlist (case-insensitive)
-        let playlist = playlists.find(p => p.name.toLowerCase() === playlistName.toLowerCase());
+        let playlist = playlists.find(
+            p => p.name.toLowerCase() === playlistName.toLowerCase()
+        );
 
         // create new playlist if not exists
         if (!playlist) {
@@ -425,7 +480,8 @@ function openVideoModal(video) {
         iframe.height = '315';
         iframe.src = `https://www.youtube.com/embed/${video.id}`;
         iframe.frameBorder = '0';
-        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+        iframe.allow =
+            'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
         iframe.allowFullscreen = true;
         content.appendChild(iframe);
     }
@@ -451,12 +507,14 @@ async function loadPlaylistsPage() {
         const li = document.createElement('li');
         li.textContent = p.name;
         li.dataset.id = p.id;
-        const isActive = (p.id === selectedId) || (!selectedId && index === 0);
+        const isActive = p.id === selectedId || (!selectedId && index === 0);
         if (isActive) {
             li.classList.add('active');
         }
         li.onclick = () => {
-            document.querySelectorAll('#playlist-list li').forEach(item => item.classList.remove('active'));
+            document
+                .querySelectorAll('#playlist-list li')
+                .forEach(item => item.classList.remove('active'));
             li.classList.add('active');
             loadPlaylistContent(p.id, playlists);
             const url = new URL(window.location.href);
@@ -508,13 +566,13 @@ function loadPlaylistContent(id, playlistsArray) {
     delBtn.onclick = async () => {
         if (confirm('Delete this playlist?')) {
             try {
-                // Soft delete: mark as _deleted and update on server
+                // Soft delete: mark as _deleted and update
                 playlist._deleted = true;
                 await updatePlaylistOnServer(playlist);
                 await loadPlaylistsPage();
             } catch (err) {
                 console.error(err);
-                alert('Failed to delete playlist on server.');
+                alert('Failed to delete playlist.');
             }
         }
     };
@@ -549,7 +607,7 @@ function loadPlaylistContent(id, playlistsArray) {
             await updatePlaylistOnServer(playlist);
         } catch (err) {
             console.error(err);
-            alert('Failed to save playlist changes to server.');
+            alert('Failed to save playlist changes.');
         }
     }
 
@@ -633,7 +691,6 @@ function initLogin() {
 
 async function initSearch() {
     ensureLoggedIn();
-    const currentUser = getCurrentUser();
     const user = getCurrentUserInfo();
 
     if (user) {
@@ -676,7 +733,6 @@ function handleMp3Upload(e) {
     reader.onload = () => {
         const dataUrl = reader.result;
         const title = file.name;
-        // Create a pseudo video object for MP3
         const video = {
             id: Date.now().toString(),
             title,
@@ -706,7 +762,7 @@ async function initPlaylists() {
                 await loadPlaylistsPage();
             } catch (err) {
                 console.error(err);
-                alert('Failed to create playlist on server.');
+                alert('Failed to create playlist.');
             }
         };
     }
