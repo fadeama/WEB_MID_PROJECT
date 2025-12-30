@@ -13,7 +13,11 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// serve ALL static files (index.html, login.html, styles.css, script.js, etc.)
+// from the project root
+app.use(express.static(__dirname));
+
 
 function readJSON(file, defaultValue = []) {
     try {

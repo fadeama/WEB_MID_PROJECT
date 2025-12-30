@@ -160,36 +160,65 @@ async function loginUser(e) {
         return;
     }
 
+    // Are we running locally with Node, or on GitHub Pages?
+    const isLocal =
+        location.hostname === 'localhost' ||
+        location.hostname === '127.0.0.1';
+
     try {
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
+        if (isLocal) {
+            // ----- LOCAL MODE: use Node server API -----
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
 
-        const data = await res.json().catch(() => ({}));
+            const data = await res.json().catch(() => ({}));
 
-        if (!res.ok || !data.success) {
-            // From server: "Invalid credentials." or similar
-            if (data.error) {
-                error.textContent = data.error;
-            } else {
-                error.textContent = 'Login failed: invalid username or password.';
+            if (!res.ok || !data.success) {
+                if (data.error) {
+                    error.textContent = data.error;
+                } else {
+                    error.textContent = 'Login failed: invalid username or password.';
+                }
+                return;
             }
-            return;
-        }
 
-        // success
-        setCurrentUser(username);
-        if (data.user) {
-            setCurrentUserInfo(data.user);
+            setCurrentUser(username);
+            if (data.user) {
+                setCurrentUserInfo(data.user);
+            }
+            window.location.href = 'search.html';
+        } else {
+            // ----- GITHUB PAGES MODE: read static data/users.json -----
+            const res = await fetch('data/users.json');
+            if (!res.ok) {
+                error.textContent = 'Login failed: cannot load users list.';
+                return;
+            }
+
+            const users = await res.json();
+            const user = users.find(
+                u => u.username === username && u.password === password
+            );
+
+            if (!user) {
+                error.textContent = 'Login failed: invalid username or password.';
+                return;
+            }
+
+            // success using static JSON
+            setCurrentUser(username);
+            setCurrentUserInfo(user);
+            window.location.href = 'search.html';
         }
-        window.location.href = 'search.html';
     } catch (err) {
         console.error(err);
-        error.textContent = 'Login failed: cannot reach server.';
+        error.textContent = 'Login failed: unexpected error.';
     }
 }
+
 
 
 function logout() {
